@@ -1,0 +1,10 @@
+{
+  "name": "youtube-auto-skip",
+  "version": "0.1.0",
+  "description": "Browser extension that clicks the Skip button on skippable YouTube ads.",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  }
+}

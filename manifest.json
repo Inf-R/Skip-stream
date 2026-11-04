@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Skip for YouTube",
+  "version": "0.1.0",
+  "description": "Clicks the \"Skip\" button on skippable YouTube ads so you don't have to reach for the mouse.",
+  "permissions": [
+    "storage"
+  ],
+  "action": {
+    "default_title": "Auto Skip for YouTube",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "src/main-world.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "src/selectors.js",
+        "src/skipper.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
