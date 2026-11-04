@@ -1,48 +1,75 @@
-# Auto Skip for YouTube
+# SkipStream ⚡
 
-A small Manifest V3 browser extension that clicks the **Skip** button on skippable
-YouTube ads, so you can keep watching hands-free (eating, lying down, etc.).
+> Lightweight, zero-click ad skipper for YouTube and YouTube Music built with Vanilla JavaScript and Manifest V3.
 
-> **Disclaimer:** educational / portfolio project. It only clicks the Skip button that
-> YouTube already shows; it does not block ads. Automating interactions may conflict
-> with YouTube's Terms of Service. Use at your own discretion.
+SkipStream automatically detects and triggers the "Skip Ad" sequence without disrupting playback state, bypassing synthetic event protections (`event.isTrusted`), and preventing post-roll promotional sponsor cards.
 
-## How it works
+---
 
-1. A `MutationObserver` watches the page for DOM changes (throttled to once per animation frame).
-2. `skipper.js` looks for a visible element matching `SKIP_BUTTON_SELECTORS`.
-3. If found, it clicks it after a short delay (re-checking visibility first).
+## 💡 The Problem
 
-## Project structure
+Modern web video players (such as YouTube's `base.js`) implement layered protections against automated interactions:
 
+1. **Synthetic Click Rejection:** Direct DOM `.click()` calls dispatch an untrusted event (`event.isTrusted === false`) with `(0, 0)` pointer coordinates, which internal player listeners intentionally drop.
+2. **Ad-Pod Inconsistencies:** Artificially fast-forwarding the `<video>` tag (`currentTime = duration`) triggers an `ended` event rather than a `skip` state. This causes YouTube to display interactive sponsor end-cards and can fail to cancel multi-ad queues (e.g., 2 consecutive ads).
+3. **Aggressive DOM Mutations:** Polling the DOM constantly causes CPU throttling and layout thrashing.
+
+---
+
+## 🛠️ Architecture & Solution
+
+SkipStream is built with a modular, test-driven architecture:
+
+```text
+├── manifest.json         # Extension configuration (MV3)
+├── src/
+│   ├── selectors.js      # Isolated CSS selector definitions
+│   ├── skipper.js        # Pure skipping engine (framework & browser agnostic)
+│   ├── content.js        # DOM MutationObserver & Chrome storage bridge
+│   └── main-world.js     # MAIN world script providing trusted event proxies
+└── tests/
+    └── skipper.test.js   # Unit tests using Node.js native test runner
 ```
-src/selectors.js   CSS selectors for the Skip button (update here when YouTube changes)
-src/skipper.js     Pure logic: find the button, schedule one click (unit-tested)
-src/content.js     Glue: observer + settings
-popup/             Toggle on/off (stored with chrome.storage.sync)
-tests/             Node built-in test runner, fake DOM, no dependencies
-```
 
-## Install (development)
+### Key Technical Highlights
 
-1. Open `chrome://extensions` and enable **Developer mode**.
-2. Click **Load unpacked** and select this folder.
-3. Open YouTube. Toggle the extension from its popup.
+- **MAIN World Event Proxy:** Injected via Manifest V3 `world: "MAIN"` at `document_start`, wrapping `EventTarget.prototype.addEventListener` with a transparent `Proxy`. Events dispatched by the extension present `isTrusted: true` and calculated center coordinates directly to YouTube's player listeners.
+- **Pure Functional Logic:** `src/skipper.js` has zero dependencies on browser globals (`window`, `chrome.*`, or `document`), allowing it to be unit-tested in plain Node.js.
+- **Batched DOM Tracking:** Employs a scoped `MutationObserver` debounced via `requestAnimationFrame` to ensure checks run at most once per display refresh cycle.
+- **State Validation:** Validates element readiness (including countdown opacity transitions) before queuing clicks to prevent race conditions.
 
-## Tests
+---
 
-```
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Google Chrome, Chromium, or any Chromium-based browser (Brave, Edge, etc.)
+- [Node.js](https://nodejs.org/) (v18+ recommended for running unit tests)
+
+### Installation
+
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/<your-username>/skip-stream.git
+   cd skip-stream
+   ```
+2. Open your browser and navigate to `chrome://extensions/`.
+3. Enable **Developer mode** (toggle switch in the top-right corner).
+4. Click **Load unpacked** and select the root directory of this repository.
+
+---
+
+## 🧪 Running Tests
+
+The test suite validates queue states, delayed triggers, and readiness checks using Node.js's native test runner:
+
+```bash
 npm test
 ```
 
-## Roadmap
+---
 
-- [ ] Adapters for other video sites
-- [ ] Configurable delay and per-site toggle
-- [ ] Skip counter in the popup
-- [ ] Firefox build
-- [ ] Android version (AccessibilityService)
+## 📄 License
 
-## License
-
-MIT
+This project is licensed under the [MIT License](LICENSE).
