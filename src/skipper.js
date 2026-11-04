@@ -27,6 +27,7 @@ function findSkipButton(root, selectors, isReady = isElementReady) {
   return null;
 }
 
+// Button-based skipper for regular YouTube (www.youtube.com).
 function createSkipper({
   root,
   selectors,
@@ -63,6 +64,82 @@ function createSkipper({
   return { trySkip };
 }
 
+// Checks if the ad video has loaded its duration and hasn't reached the end yet.
+function isAdVideoReady(video) {
+  return Boolean(
+    video &&
+      Number.isFinite(video.duration) &&
+      video.duration > 0 &&
+      video.currentTime < video.duration - 0.5
+  );
+}
+
+// Finds the active ad video inside an ad-showing player container.
+function findAdVideo(
+  root,
+  playerSelectors,
+  videoSelector = "video.html5-main-video",
+  isVideoReady = isAdVideoReady
+) {
+  for (const selector of playerSelectors) {
+    for (const player of root.querySelectorAll(selector)) {
+      const video = player.querySelector(videoSelector);
+      if (isVideoReady(video)) return video;
+    }
+  }
+  return null;
+}
+
+// Playtime-manipulation skipper for YouTube Music (music.youtube.com)
+// where ads are mostly unskippable.
+function createPlaytimeSkipper({
+  root,
+  playerSelectors,
+  videoSelector = "video.html5-main-video",
+  delayMs = 50,
+  isVideoReady = isAdVideoReady,
+  fastForward = (video) => {
+    video.currentTime = video.duration;
+  },
+  schedule = setTimeout,
+  onSkip = () => {},
+}) {
+  let pending = false;
+
+  function trySkip() {
+    if (pending) return;
+    const video = findAdVideo(root, playerSelectors, videoSelector, isVideoReady);
+    if (!video) return;
+
+    pending = true;
+    schedule(() => {
+      pending = false;
+      // Re-query to ensure the player is STILL in .ad-showing state
+      // so we never fast-forward the actual music track.
+      const activeAdVideo = findAdVideo(
+        root,
+        playerSelectors,
+        videoSelector,
+        isVideoReady
+      );
+      if (!activeAdVideo) return;
+
+      fastForward(activeAdVideo);
+      onSkip(activeAdVideo);
+    }, delayMs);
+  }
+
+  return { trySkip };
+}
+
 if (typeof module !== "undefined") {
-  module.exports = { findSkipButton, createSkipper, isElementVisible, isElementReady };
+  module.exports = {
+    findSkipButton,
+    createSkipper,
+    isElementVisible,
+    isElementReady,
+    isAdVideoReady,
+    findAdVideo,
+    createPlaytimeSkipper,
+  };
 }
